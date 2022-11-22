@@ -1,0 +1,137 @@
+version: "2.4"
+
+services:
+  cchq-formplayer:
+    image: dimagi/formplayer
+    environment:
+      COMMCARE_HOST: "http://web:8000"
+      COMMCARE_ALTERNATE_ORIGINS: "http://localhost:8000,http://127.0.0.1:8000"
+      AUTH_KEY: "secretkey"
+      EXTERNAL_REQUEST_MODE: "replace-host"
+    ports:
+      - "8080:8080"
+      - "8081:8081"
+    expose:
+      - "8080"
+      - "8081"
+
+  cchq-postgres:
+    image: dimagi/docker-postgresql:14
+    environment:
+      POSTGRES_USER: commcarehq
+      POSTGRES_PASSWORD: commcarehq
+    volumes:
+      - cchq-postgres-vol:/var/lib/postgresql/data
+    ports:
+      - "5432:5432"
+    expose:
+      - "5432"
+
+  cchq-couch:
+    image: dimagi/couchdb-dev:3.1.1
+    command: ["--with-haproxy", "--with-admin-party-please", "-n", "1"]
+    ulimits:
+      # Fix high CPU usage (1048576 is the default, 1024 fixed it)
+      # https://groups.google.com/forum/#!topic/rabbitmq-users/hO06SB-QBqc
+      nofile:
+        soft: 1024
+        hard: 1048576
+    volumes:
+      - cchq-couch-vol:/usr/src/couchdb/dev/lib/node1/data
+    ports:
+      - "5984:5984"
+    expose:
+      - "5984"
+    healthcheck:
+      test: bash -c 'exec 6<>/dev/tcp/couch/5984'
+      interval: 10s
+      retries: 10
+
+  cchq-redis:
+    image: redis:6.2
+    volumes:
+      - cchq-redis-vol:/data
+    ports:
+      - "6379:6379"
+    expose:
+      - "6379"
+    healthcheck:
+      test: bash -c 'exec 6<>/dev/tcp/redis/6379'
+      interval: 10s
+      retries: 10
+
+  cchq-elasticsearch2:
+    build:
+      context: .
+      dockerfile: ./elasticsearch/Dockerfile
+    volumes:
+      - cchq-elasticsearch2-vol:/usr/share/elasticsearch/data
+      - ./elasticsearch/elasticsearch.yml:/usr/share/elasticsearch/config/elasticsearch.yml:rw
+    command: elasticsearch --cluster.name=instant_hq
+    environment:
+      ES_CLUSTER_NAME: "instant_hq"
+      ES_JAVA_OPTS: "-Des.script.engine.groovy.inline.aggs=true -Des.script.engine.groovy.inline.search=true"
+    ports:
+      - "9200:9200"
+    expose:
+      - "9200"
+    healthcheck:
+      test: bash -c 'exec 6<>/dev/tcp/elasticsearch2/9200'
+      interval: 10s
+      retries: 10
+
+  cchq-kafka:
+    image: confluentinc/cp-kafka:7.2.2 # kafka v3.2.2
+    environment:
+      KAFKA_ZOOKEEPER_CONNECT: zookeeper:2181
+      KAFKA_BROKER_ID: 1
+      KAFKA_INTER_BROKER_LISTENER_NAME: HQ_KAFKA
+      KAFKA_LISTENERS: HQ_KAFKA://0.0.0.0:9092
+      KAFKA_ADVERTISED_LISTENERS: HQ_KAFKA://kafka:9092
+      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: HQ_KAFKA:PLAINTEXT
+      CUSTOM_INIT_SCRIPT: |
+        URL="https://raw.githubusercontent.com/vishnubob/wait-for-it/c096cface5fbd9f2d6b037391dfecae6fde1362e/wait-for-it.sh"
+        if curl --max-time 10 $$URL > wait.sh ; then
+          chmod +x ./wait.sh
+          ./wait.sh -t 30 zookeeper:2181 || exit 1
+        else
+          echo "Wait script download failed"
+        fi
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+      - cchq-kafka-vol:/kafka/kafka-logs-1
+    ports:
+      - "9092:9092"
+    expose:
+      - "9092"
+    healthcheck:
+      test: bash -c 'exec 6<>/dev/tcp/kafka/9092'
+      interval: 10s
+      retries: 10
+
+  cchq-zookeeper:
+    image: zookeeper:3.7
+    volumes:
+      - cchq-zookeeper-vol:/opt/zookeeper-3.7/data
+    ports:
+      - "2181:2181"
+    expose:
+      - "2181"
+
+  cchq-minio:
+    image: minio/minio
+    command: server --address :9980 /data
+    volumes:
+      - cchq-minio-conf:/root/.minio
+      - cchq-minio-data:/data
+    environment:
+      MINIO_ACCESS_KEY: admin-key
+      MINIO_SECRET_KEY: admin-secret
+    ports:
+      - "9980:9980"
+    expose:
+      - "9980"
+    healthcheck:
+      test: nc -z minio 9980
+      interval: 10s
+      retries: 10

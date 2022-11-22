@@ -7,6 +7,8 @@ disableCustomTargetSelection: false
 packages:
   - id: core
     name: Core package
+  - id: chis
+    name: Community Health Information System
   - id: client
     name: OpenCR Client Registry
   - id: elastic-analytics

@@ -1,0 +1,97 @@
+version: "2.4"
+
+x-commcarehq_base: &commcarehq_base
+  image: kaapstorm/commcarehq_incl:latest
+  privileged: true  # allows mount inside container
+  depends_on:
+    cchq-postgres:
+      condition: service_started
+    cchq-couch:
+      condition: service_healthy
+    cchq-redis:
+      condition: service_healthy
+    cchq-elasticsearch2:
+      condition: service_healthy
+    cchq-kafka:
+      condition: service_healthy
+    cchq-zookeeper:
+      condition: service_started
+    cchq-minio:
+      condition: service_healthy
+  volumes:
+    - cchq-shared_files:/sharedfiles
+
+services:
+  cchq-web:
+    <<: *commcarehq_base
+    command: './manage.py runserver 0.0.0.0:8000'
+    expose:
+      - 8000
+    ports:
+      - "8000:8000"
+
+  cchq-celery:
+    <<: *commcarehq_base
+    command: 'celery -A corehq worker -l info'
+
+  cchq-pillowtop:
+    <<: *commcarehq_base
+    environment:
+      KAFKA_ADVERTISED_HOST_NAME: kafka
+    command: './manage.py run_ptop --all --processor-chunk-size=1'
+
+  cchq-formplayer:
+    extends:
+      file: docker-compose.common.yml
+      service: cchq-formplayer
+    depends_on:
+      cchq-postgres:
+        condition: service_started
+      cchq-redis:
+        condition: service_healthy
+
+  cchq-postgres:
+    extends:
+      file: docker-compose.common.yml
+      service: cchq-postgres
+
+  cchq-couch:
+    extends:
+      file: docker-compose.common.yml
+      service: cchq-couch
+
+  cchq-redis:
+    extends:
+      file: docker-compose.common.yml
+      service: cchq-redis
+
+  cchq-elasticsearch2:
+    extends:
+      file: docker-compose.common.yml
+      service: cchq-elasticsearch2
+
+  cchq-kafka:
+    extends:
+      file: docker-compose.common.yml
+      service: cchq-kafka
+
+  cchq-zookeeper:
+    extends:
+      file: docker-compose.common.yml
+      service: cchq-zookeeper
+
+  cchq-minio:
+    extends:
+      file: docker-compose.common.yml
+      service: cchq-minio
+
+volumes:
+  cchq-shared_files:
+  cchq-postgres-vol:
+  cchq-couch-vol:
+  cchq-redis-vol:
+  cchq-elasticsearch2-vol:
+  cchq-kafka-vol:
+  cchq-zookeeper-vol:
+  cchq-minio-conf:
+  cchq-minio-data:

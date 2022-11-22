@@ -1,0 +1,9 @@
+{
+  "id": "chis",
+  "name": "Community Health Information System",
+  "description": "Installs and starts up an instance of CommCare HQ",
+  "version": "v0.0.1",
+  "dependencies": ["core"],
+  "environmentVariables": {
+  }
+}
