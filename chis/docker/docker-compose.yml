@@ -7,17 +7,22 @@ x-commcarehq_base: &commcarehq_base
     cchq-postgres:
       condition: service_started
     cchq-couch:
-      condition: service_healthy
+      # condition: service_healthy
+      condition: service_started
     cchq-redis:
-      condition: service_healthy
+      # condition: service_healthy
+      condition: service_started
     cchq-elasticsearch2:
-      condition: service_healthy
+      # condition: service_healthy
+      condition: service_started
     cchq-kafka:
-      condition: service_healthy
+      # condition: service_healthy
+      condition: service_started
     cchq-zookeeper:
       condition: service_started
     cchq-minio:
-      condition: service_healthy
+      # condition: service_healthy
+      condition: service_started
   volumes:
     - cchq-shared_files:/sharedfiles
 
@@ -48,7 +53,8 @@ services:
       cchq-postgres:
         condition: service_started
       cchq-redis:
-        condition: service_healthy
+        # condition: service_healthy
+        condition: service_started
 
   cchq-postgres:
     extends:
@@ -74,6 +80,9 @@ services:
     extends:
       file: docker-compose.common.yml
       service: cchq-kafka
+    depends_on:
+      cchq-zookeeper:
+        condition: service_started
 
   cchq-zookeeper:
     extends:

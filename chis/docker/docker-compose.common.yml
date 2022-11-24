@@ -8,6 +8,7 @@ services:
       COMMCARE_ALTERNATE_ORIGINS: "http://localhost:8000,http://127.0.0.1:8000"
       AUTH_KEY: "secretkey"
       EXTERNAL_REQUEST_MODE: "replace-host"
+    # Port 8080 conflicts with OpenHIM
     ports:
       - "8080:8080"
       - "8081:8081"
@@ -22,6 +23,7 @@ services:
       POSTGRES_PASSWORD: commcarehq
     volumes:
       - cchq-postgres-vol:/var/lib/postgresql/data
+    # Port 5432 conflicts with HAPI FHIR's Postgres DB
     ports:
       - "5432:5432"
     expose:
@@ -42,10 +44,10 @@ services:
       - "5984:5984"
     expose:
       - "5984"
-    healthcheck:
-      test: bash -c 'exec 6<>/dev/tcp/couch/5984'
-      interval: 10s
-      retries: 10
+    # healthcheck:
+    #   test: bash -c 'exec 6<>/dev/tcp/couch/5984'
+    #   interval: 10s
+    #   retries: 10
 
   cchq-redis:
     image: redis:6.2
@@ -55,18 +57,29 @@ services:
       - "6379:6379"
     expose:
       - "6379"
-    healthcheck:
-      test: bash -c 'exec 6<>/dev/tcp/redis/6379'
-      interval: 10s
-      retries: 10
+    # ERROR: for cchq-formplayer  Container "844175259fbf" is unhealthy.
+    # healthcheck:
+    #   test: bash -c 'exec 6<>/dev/tcp/redis/6379'
+    #   interval: 10s
+    #   retries: 10
 
   cchq-elasticsearch2:
     build:
       context: .
       dockerfile: ./elasticsearch/Dockerfile
+    # ERROR: for cchq-elasticsearch2  Cannot start service
+    # cchq-elasticsearch2: failed to create shim task: OCI runtime create
+    # failed: runc create failed: unable to start container process:
+    # error during container init: error
+    # mounting "/instant/chis/docker/elasticsearch/elasticsearch.yml" to
+    # rootfs at "/usr/share/elasticsearch/config/elasticsearch.yml":
+    # mount /instant/chis/docker/elasticsearch/elasticsearch.yml:/usr/share/elasticsearch/config/elasticsearch.yml
+    # (via /proc/self/fd/6), flags: 0x5000: not a directory: unknown: Are
+    # you trying to mount a directory onto a file (or vice-versa)? Check
+    # if the specified host path exists and is the expected type
     volumes:
       - cchq-elasticsearch2-vol:/usr/share/elasticsearch/data
-      - ./elasticsearch/elasticsearch.yml:/usr/share/elasticsearch/config/elasticsearch.yml:rw
+      # - ./elasticsearch/elasticsearch.yml:/usr/share/elasticsearch/config/elasticsearch.yml:rw
     command: elasticsearch --cluster.name=instant_hq
     environment:
       ES_CLUSTER_NAME: "instant_hq"
@@ -75,10 +88,10 @@ services:
       - "9200:9200"
     expose:
       - "9200"
-    healthcheck:
-      test: bash -c 'exec 6<>/dev/tcp/elasticsearch2/9200'
-      interval: 10s
-      retries: 10
+    # healthcheck:
+    #   test: bash -c 'exec 6<>/dev/tcp/elasticsearch2/9200'
+    #   interval: 10s
+    #   retries: 10
 
   cchq-kafka:
     image: confluentinc/cp-kafka:7.2.2 # kafka v3.2.2
@@ -104,10 +117,11 @@ services:
       - "9092:9092"
     expose:
       - "9092"
-    healthcheck:
-      test: bash -c 'exec 6<>/dev/tcp/kafka/9092'
-      interval: 10s
-      retries: 10
+    # healthcheck:
+    #   test: bash -c 'exec 6<>/dev/tcp/kafka/9092'
+    #   start_period: 15s
+    #   interval: 10s
+    #   retries: 10
 
   cchq-zookeeper:
     image: zookeeper:3.7
@@ -131,7 +145,8 @@ services:
       - "9980:9980"
     expose:
       - "9980"
-    healthcheck:
-      test: nc -z minio 9980
-      interval: 10s
-      retries: 10
+    # healthcheck:
+    #   test: bash -c 'exec 6<>/dev/tcp/minio/9980'
+    #   start_period: 15s
+    #   interval: 10s
+    #   retries: 10
